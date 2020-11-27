@@ -24,15 +24,15 @@ ui <- fluidPage(
       fluidRow(
         
         column(12,h2("Select Tickers"),style="background-color:#ffff99;",
-          
-          fluidRow(
-        
-            column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
-            
-            column(12,textOutput("stockFilePath")),
-            
-            column(12,searchInput(inputId="tickerSearch",
-                        label="Search stock data by ticker",
+               
+               fluidRow(
+                 
+                 column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
+                 
+                 column(12,textOutput("stockFilePath")),
+                 
+                 column(12,searchInput(inputId="tickerSearch",
+                                       label="Search stock data by ticker",
                         placeholder = "",
                         btnSearch = icon("search"), 
                         btnReset = icon("remove"),
@@ -257,10 +257,10 @@ server <- function(input,output,session) {
     simResults$stockOnly <- Simulate_Stocks(unlist(strsplit(input$tickers,",")), format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$tickers,",")))), nrow = 1),input$notional,input$stockweight,input$bondweight)
   })
   
-  # observeEvent(simResults$stockOnly, {
-  #   print("A stock simulation just got created! Now invoking bond simulations")
-  #   simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
-  # })
+  observeEvent(simResults$stockOnly, {
+    print("A stock simulation just got created! Now invoking bond simulations")
+    simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
+  })
   
   maketable <- eventReactive(input$button,{
     result <- table(c("Value-at-Risk","b"),c(1,2))

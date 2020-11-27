@@ -1,12 +1,13 @@
 
 Bond_sim <- function(ISIN, N, Begin_Date, End_Date, Steps) {
   
-  
-  Sim_First_Date_ = End_Date
+  # Date conversion for matching data ranges:
+  Begin_Date_ = format(Begin_Date, "%Y-%m")
+  End_Date_ = format(End_Date, "%Y-%m")
+  Sim_First_Date = End_Date_
   
   # Extract bond data:
   Bond_history = Bonds[Bonds$ISIN==ISIN,]
-  print(Bond_history)
   # Format dates to make matching
   Bond_history$Date = format(as.Date(Bond_history$Date), "%Y-%m")
   
@@ -16,11 +17,8 @@ Bond_sim <- function(ISIN, N, Begin_Date, End_Date, Steps) {
   Coupon_frequency = Bond_history$`Coupon Freq`[1]
   # Store coupon amount:
   Coupon = Bond_history$Coupon[1]
-  print(Begin_Date)
-  print("The dates in Bond_history are")
-  print(Bond_history$Date)
   # Store yield history:
-  Yields = Bond_history$`Mid Yield`[c(which(Bond_history$Date == Begin_Date):which(Bond_history$Date == End_Date))]
+  Yields = Bond_history$`Mid Yield`[c(which(Bond_history$Date == Begin_Date_):which(Bond_history$Date == End_Date_))]
   
   # Vasicek model calibration:
   

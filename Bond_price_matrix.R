@@ -36,7 +36,7 @@ Bond_price_matrix <- function(Begin_Date, Date, Maturity, Steps, Yield, Freq, Co
   
   # Loop steps:
   for (j in 1:(Steps+1)) {
-    Date = as.Date(paste0(as.character(Begin_Date), "-", 01), format="%Y-%m-%d") %m+% months(j-1)
+    Date = Begin_Date %m+% months(j-1)
     # Loop through yields:
     for (i in 1:nrow(Yield)) {
       # Present value of principal and last coupon:

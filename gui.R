@@ -2,12 +2,13 @@ library(shiny)
 library(shinyWidgets)
 library(shinyFiles)
 library(fs)
+library(ggplot2)
 library(readxl)
-# source("osakesimulaatio_funktiomuodossa.R")
-# source("hintapolkufunktio.R")
+library(dplyr)
+library(reshape2)
 source("scripts.R")
 
-ui <- fluidPage(
+ui <- fluidPage(style="background-color:#FFFFFF;",
   setBackgroundImage(
     src = ""
   ),
@@ -19,20 +20,19 @@ ui <- fluidPage(
   
   
   sidebarLayout(
-    sidebarPanel(
+    sidebarPanel(style="background-color:#DDDDDD;",
       
       fluidRow(
+        column(12,h2("Select Tickers"),style="background-color:#DDDDDD;",
+          
+          fluidRow(
         
-        column(12,h2("Select Tickers"),style="background-color:#ffff99;",
-               
-               fluidRow(
-                 
-                 column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
-                 
-                 column(12,textOutput("stockFilePath")),
-                 
-                 column(12,searchInput(inputId="tickerSearch",
-                                       label="Search stock data by ticker",
+            column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
+            
+            column(12,textOutput("stockFilePath")),
+            
+            column(12,searchInput(inputId="tickerSearch",
+                        label="Search stock data by ticker",
                         placeholder = "",
                         btnSearch = icon("search"), 
                         btnReset = icon("remove"),
@@ -55,7 +55,7 @@ ui <- fluidPage(
       
       fluidRow(
         
-        column(12,h2("Asset Allocation"),style="background-color:#ccff99;",
+        column(12,h2("Asset Allocation"),style="background-color:#DDDDDD;",
           fluidRow(
           
             column(width=4,numericInput(inputId = "stockweight",
@@ -83,7 +83,7 @@ ui <- fluidPage(
       ),
       
       fluidRow(
-        column(12,h2("Simulation specs"),style="background-color:#ffff99;",
+        column(12,h2("Simulation specs"),style="background-color:#DDDDDD;",
                       
           fluidRow(
             
@@ -106,7 +106,7 @@ ui <- fluidPage(
                      end = "2018-08-01",)),
       
             column(12,sliderInput("slide","Number of simulations",
-                  min=0,max=1000,value=10)),
+                  min=0,max=1000,value=5)),
           )
         )
       ), 
@@ -123,10 +123,10 @@ ui <- fluidPage(
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Price path",plotOutput("pricepath")),
-        tabPanel("Return distribution",plotOutput("tuottojakauma1")),
-        tabPanel("Market cap distribution",plotOutput("tuottojakauma2")),
-        tabPanel("Key information",tableOutput("stats")),
+        tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
+        tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
+        tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
+        tabPanel("Key information",tableOutput("stats"),icon = icon("info")),
         tabPanel("Efficient Frontier",plotOutput("efficientfrontier"))
       )
     )
@@ -187,16 +187,6 @@ server <- function(input,output,session) {
     input$tickers
   })
   
-  # path_reactive <- eventReactive(input$button,{
-  #   tickerlist <- unlist(strsplit(input$tickers,","))
-  #   pricePathFunction(tickerlist,
-  #                     c("2018-10-01","2020-10-01"),
-  #                     input$slide,
-  #                     1000000,
-  #                     input$months,parseFilePaths(volumes,input$stockFile)[["datapath"]])
-  # })
-  # 
-  
   pricePaths <- eventReactive(simResults$stockOnly, {
     # Margin adjustment
     par(mar = 5*c(1,1,1,1))
@@ -215,41 +205,73 @@ server <- function(input,output,session) {
     
     # Merge title and subtitle:
     full_title = paste(title_, "\n",sub_)
+
+    
+    stock_df = as.matrix(simResults$stockOnly)
+    stock_df = as.data.frame(t(stock_df))
+    print(length(stock_df))
+    
+    stock_df$Month = seq(1,input$months+1)
+    print(stock_df)
+    
+    d = stock_df
+    
+    d <- melt(d, id.vars="Month")
+    #print(d)
+    # Everything on the same plot
+    ggplot(d, aes(Month,value, col=variable)) + 
+      geom_line() + 
+      theme(legend.title = element_blank()) +
+      theme(legend.position = "none")
+    
+    #f = data.frame(simResults$stockOnly[]*input$notional,seq(1,input$months+1))
+    #colnames(f) = c("marketcap","index")
+    #ggplot(f)
+    
+    #for (i in seq(1,input$slide,1)) {
+    #  f = data.frame(simResults$stockOnly[1,]*input$notional,seq(1,input$months+1))
+    #  colnames(f) = c("marketcap","index")
+    #  ggplot(f) + geom_line(aes(x=index,y=marketcap))
+    #}
     
     # First path plot:
-    plot(T, simResults$stockOnly[1,]*input$notional, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
+    #plot(T, simResults$stockOnly[1,]*input$notional, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
     
     # Plot rest with lines:
-    for (i in seq(1,input$slide,1)) {
-      lines(T, simResults$stockOnly[i,]*input$notional)
-    }
+    #for (i in seq(1,input$slide,1)) {
+    #  lines(T, simResults$stockOnly[i,]*input$notional)
+    #}
     
     # Find mean path:
-    means = colMeans(simResults$stockOnly)
+    #means = colMeans(simResults$stockOnly)
+    
+    
+    
     # Plot mean path:
-    lines(T,means*input$notional, col = "#FF0000")
+    #lines(T,means*input$notional, col = "#FF0000")
   })
   
   return_histogram <- eventReactive(input$button,{
     histData <- simResults$stockOnly
-    #print(histData)
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
-    #print(Scaled_return)
     VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
     subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
-    hist(Scaled_return, main = input$tickers, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
+    f = data.frame(Scaled_return)
+    ggplot(f,aes(x=Scaled_return)) + geom_histogram()
+    #hist(Scaled_return, main = input$tickers, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
   })
 
   marketcap_histogram <- eventReactive(input$button, {
     histData <- simResults$stockOnly
-    #Scaled_return = histData[,input$months+1]/histData[,1]*100-100
+    Scaled_return = histData[,input$months+1]/histData[,1]*100-100
     # Normalized values at end of period:
     Scaled = histData[,input$months+1]
     Cap = Scaled * input$notional
-    #print(Cap)
-    #VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
-    #subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
-    hist(Cap, main = input$tickers, xlab = "Market value (Eur)", xlim = c(0,3*input$notional), breaks = 15)
+    VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
+    subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
+    f = data.frame(Cap)
+    ggplot(f,aes(x=Scaled_return)) + geom_histogram()
+    #hist(Cap, main = input$tickers, xlab = "Market value (Eur)", xlim = c(0,3*input$notional), breaks = 15)
   })
   
   

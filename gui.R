@@ -63,9 +63,21 @@ ui <- fluidPage(
       
       numericInput(inputId = "months",
                    label = "Number of months to simulate:",
-                   value = 20,
+                   value = 5,
                    min = 1,
                    max = 60),
+      
+      numericInput(inputId = "notional",
+                   label = "Notional portfolio value at beginning:",
+                   value = 1000000,
+                   min = 1,
+                   max = 2000000),
+      
+      numericInput(inputId = "var",
+                   label = "Value at risk:",
+                   value = 0.05,
+                   min = 0,
+                   max = 1),
       
       
       dateRangeInput(inputId = "dates",
@@ -74,7 +86,7 @@ ui <- fluidPage(
                      end = "2018-08-01",),
       
       sliderInput("slide","Number of simulations",
-                  min=0,max=1000,value=500),
+                  min=0,max=1000,value=10),
       
       actionButton("button",label="Run simulation"),
       
@@ -103,6 +115,7 @@ server <- function(input,output,session) {
   shinyFileChoose(input, "stockFile", roots = volumes, filetypes=c("", "xlsx", "xls"), session = session)
   
   simResults <- reactiveValues()
+  
   
   #  Create a list for storing the event handlers for individual search result buttons
   obsList <- list()
@@ -162,7 +175,7 @@ server <- function(input,output,session) {
     # Set time frame:
     T = 0:input$months
     # Set y axis min and max from simulated results:
-    y_scale = c(min(simResults$stockOnly[,input$months])*1000000,max(simResults$stockOnly[,input$months])*1000000)
+    y_scale = c(min(simResults$stockOnly[,input$months])*input$notional,max(simResults$stockOnly[,input$months])*input$notional)
     # Axis labels:
     y_lab = "Market Cap"
     x_lab = "Months from beginning"
@@ -175,35 +188,44 @@ server <- function(input,output,session) {
     full_title = paste(title_, "\n",sub_)
     
     # First path plot:
-    plot(T, simResults$stockOnly[1,]*1000000, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
+    plot(T, simResults$stockOnly[1,]*input$notional, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
     
     # Plot rest with lines:
     for (i in seq(1,input$slide,1)) {
-      lines(T, simResults$stockOnly[i,]*1000000)
+      lines(T, simResults$stockOnly[i,]*input$notional)
     }
     
     # Find mean path:
     means = colMeans(simResults$stockOnly)
     # Plot mean path:
-    lines(T,means*1000000, col = "#FF0000")
+    lines(T,means*input$notional, col = "#FF0000")
   })
   
-  return_histogram <- eventReactive(simResults$stockOnly,{
+  return_histogram <- eventReactive(input$button,{
     histData <- simResults$stockOnly
+    #print(histData)
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
-    hist(Scaled_return, main = title_ret, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
+    print(Scaled_return)
+    VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
+    subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
+    hist(Scaled_return, main = input$tickers, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
   })
 
-  marketcap_histogram <- eventReactive(simResults$stockOnly, {
+  marketcap_histogram <- eventReactive(input$button, {
     histData <- simResults$stockOnly
+    #Scaled_return = histData[,input$months+1]/histData[,1]*100-100
     # Normalized values at end of period:
     Scaled = histData[,input$months+1]
-    Cap = Scaled * 1000000
-    hist(Cap, main = title_cap, sub = subtitle, xlab = "Market value (Eur)", xlim = c(0,3*Value), breaks = 15)
+    Cap = Scaled * input$notional
+    print(Cap)
+    #VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
+    #subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
+    hist(Cap, main = input$tickers, xlab = "Market value (Eur)", xlim = c(0,3*input$notional), breaks = 15)
   })
   
+  
   observeEvent(input$button, {
-    simResults$stockOnly <- Simulate_Stocks(unlist(strsplit(input$tickers,",")), format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$tickers,",")))), nrow = 1), 1000000, input$stockweight, input$bondweight)
+    simResults$stockOnly <- Simulate_Stocks(unlist(strsplit(input$tickers,",")), format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$tickers,",")))), nrow = 1),input$notional,input$stockweight,input$bondweight)
   })
   
   # observeEvent(simResults$stockOnly, {
@@ -239,7 +261,6 @@ server <- function(input,output,session) {
   output$stats <- renderTable({maketable()})
   
   output$efficientfrontier <- renderPlot({frontier_react()})
-  
   
 
 }

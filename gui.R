@@ -1,11 +1,14 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyFiles)
+library(htmlTable)
 library(fs)
+library(shinydashboard)
 library(ggplot2)
 library(readxl)
 library(dplyr)
 library(reshape2)
+library(DT)
 source("scripts.R")
 
 ui <- fluidPage(style="background-color:#FFFFFF;",
@@ -48,6 +51,10 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
             column(12,textInput(inputId = "isins",
                       label = "Give ISINs",
                       value = "XS1333685409")),
+            
+            
+            column(12,actionButton("pf_button",label="Add to portfolio"))
+            
           )
         )
       ),
@@ -64,17 +71,11 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                                   min = 0,
                                   max = 100)),
             
-            column(width=4,numericInput(inputId = "bondweight",
-                                  label = "Corporate bonds (%):",
-                                  value = 0,
-                                  min = 0,
-                                  max = 100)),
+            column(width=4,numericInput(inputId = "bondweight",label = "Corporate bonds (%):",
+                                  value = 0,min = 0,max = 100)),
             
-            column(width=4,numericInput(inputId = "govbondweight",
-                                        label = "Government bonds (%):",
-                                        value = 0,
-                                        min = 0,
-                                        max = 100))
+            column(width=4,numericInput(inputId = "govbondweight",label = "Government bonds (%):",
+                                        value = 0,min = 0,max = 100))
           )
         ),
         column(12,textOutput("weight_check"))
@@ -89,7 +90,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
             
             column(6,numericInput(inputId = "months",
                    label = "Number of months to simulate:",
-                   value = 5,
+                   value = 10,
                    min = 1,
                    max = 60)),
       
@@ -106,7 +107,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                      end = "2019-10-01",)),
       
             column(12,sliderInput("slide","Number of simulations",
-                  min=0,max=1000,value=5)),
+                  min=0,max=1000,value=20)),
           )
         )
       ), 
@@ -118,18 +119,20 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                    max = 1),
       
       actionButton("button",label="Run simulation"),
+      actionButton("button",label="Download simulated data")
       
     ),
     
     mainPanel(
       tabsetPanel(
+        tabPanel("Assets",dataTableOutput("filetable")),
         tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
         tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
         tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
         tabPanel("Key information",tableOutput("stats"),icon = icon("info")),
         tabPanel("Efficient Frontier",plotOutput("efficientfrontier"))
       )
-    )
+    ),
     
   )
   
@@ -228,18 +231,11 @@ server <- function(input,output,session) {
     # Everything on the same plot
     ggplot(d, aes(Month,value, col=variable)) + 
       geom_line() + 
+      ggtitle("Simulated Price Paths") +
+      theme_light() +
       theme(legend.title = element_blank()) +
       theme(legend.position = "none")
-    
-    #f = data.frame(simResults$stockOnly[]*input$notional,seq(1,input$months+1))
-    #colnames(f) = c("marketcap","index")
-    #ggplot(f)
-    
-    #for (i in seq(1,input$slide,1)) {
-    #  f = data.frame(simResults$stockOnly[1,]*input$notional,seq(1,input$months+1))
-    #  colnames(f) = c("marketcap","index")
-    #  ggplot(f) + geom_line(aes(x=index,y=marketcap))
-    #}
+      #geom_line(aes(x=Month,y=colMeans(stock_df)*input$notional))
     
     # First path plot:
     #plot(T, simResults$stockOnly[1,]*input$notional, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
@@ -251,8 +247,6 @@ server <- function(input,output,session) {
     
     # Find mean path:
     #means = colMeans(simResults$stockOnly)
-    
-    
     
     # Plot mean path:
     #lines(T,means*input$notional, col = "#FF0000")
@@ -293,7 +287,33 @@ server <- function(input,output,session) {
   
   
   maketable <- eventReactive(input$button,{
-    result <- table(c("Value-at-Risk","b"),c(1,2))
+    result <- table(c("Value-at-Risk","b",),c(1,2))
+  })
+  
+  selectedData <- eventReactive(input$pf_button, {
+    tickers = unlist(strsplit(input$tickers,","))
+    f = as.data.frame(seq(1,length(tickers),1),tickers)
+    colnames(f) = c('Ticker')
+    print(f)
+    print(length(f))
+    datatable(f)
+    # Create the table (using table from htmlTables doc as example)
+    #HTML(
+    #  htmlTable(matrix(paste("Content", LETTERS[1:16]), 
+    #                   ncol=4, byrow = TRUE),
+    #            header =  paste(c("1st", "2nd",
+    #                              "3rd", "4th"), "header"),
+                #rnames = paste(c("1st", "2nd",
+                #                 "3rd", "4th"), "row"),
+    #            rgroup = c("Stocks",
+    #                       "Corporate Bonds"),
+     #           n.rgroup = c(2,2),
+      #          cgroup = c("Cgroup 1", "Cgroup 2&dagger;"),
+       #         n.cgroup = c(2,2), 
+      #          caption="Portfolio Assets",
+      #          tfoot="&dagger; A table footer commment") 
+    #)
+    
   })
   
   
@@ -317,7 +337,7 @@ server <- function(input,output,session) {
   output$pricepath <- renderPlot({pricePaths()})
   output$tuottojakauma1 <- renderPlot({return_histogram()})
   output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
-  
+  output$filetable <- renderDataTable({selectedData()})
   output$stats <- renderTable({maketable()})
   
   output$efficientfrontier <- renderPlot({frontier_react()})

@@ -3,8 +3,8 @@ library(shinyWidgets)
 library(shinyFiles)
 library(fs)
 library(readxl)
-source("osakesimulaatio_funktiomuodossa.R")
-source("hintapolkufunktio.R")
+# source("osakesimulaatio_funktiomuodossa.R")
+# source("hintapolkufunktio.R")
 source("scripts.R")
 
 ui <- fluidPage(
@@ -104,16 +104,6 @@ server <- function(input,output,session) {
   
   simResults <- reactiveValues()
   
-  #  Old crude search engine in case the fancy one breaks something:
-  # 
-  # output$tickerSearchRes <- eventReactive(input$tickerSearch_search,{
-  #   grep(input$tickerSearch,names(read_excel(parseFilePaths(volumes,input$stockFile)[["datapath"]], sheet="Returns"))
-  #     ,ignore.case=TRUE,value=TRUE)
-  # })
-  # 
-  
-  # Read the stock and bond data files from the local FS
-
   #  Create a list for storing the event handlers for individual search result buttons
   obsList <- list()
   
@@ -164,29 +154,62 @@ server <- function(input,output,session) {
   #                     input$months,parseFilePaths(volumes,input$stockFile)[["datapath"]])
   # })
   # 
+  
+  pricePaths <- eventReactive(simResults$stockOnly, {
+    # Margin adjustment
+    par(mar = 5*c(1,1,1,1))
+    
+    # Set time frame:
+    T = 0:input$months
+    # Set y axis min and max from simulated results:
+    y_scale = c(min(simResults$stockOnly[,input$months])*1000000,max(simResults$stockOnly[,input$months])*1000000)
+    # Axis labels:
+    y_lab = "Market Cap"
+    x_lab = "Months from beginning"
+    
+    # Set title and subtitle:
+    title_ = "Price path simulation"
+    sub_ = paste(unlist(strsplit(input$tickers,",")), collapse = ", ")
+    
+    # Merge title and subtitle:
+    full_title = paste(title_, "\n",sub_)
+    
+    # First path plot:
+    plot(T, simResults$stockOnly[1,]*1000000, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
+    
+    # Plot rest with lines:
+    for (i in seq(1,input$slide,1)) {
+      lines(T, simResults$stockOnly[i,]*1000000)
+    }
+    
+    # Find mean path:
+    means = colMeans(simResults$stockOnly)
+    # Plot mean path:
+    lines(T,means*1000000, col = "#FF0000")
+  })
+  
   return_histogram <- eventReactive(simResults$stockOnly,{
     histData <- simResults$stockOnly
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
     hist(Scaled_return, main = title_ret, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
   })
-  # 
-  # marketcap_histogram <- eventReactive(input$button,{
-  #   tickerlist <- unlist(strsplit(input$tickers,","))
-  #   hg(tickerlist,c("2018-10-01","2020-10-01"),
-  #      input$slide,
-  #      1000000,
-  #      input$months,
-  #      2,parseFilePaths(volumes,input$stockFile)[["datapath"]])
-  # })
+
+  marketcap_histogram <- eventReactive(simResults$stockOnly, {
+    histData <- simResults$stockOnly
+    # Normalized values at end of period:
+    Scaled = histData[,input$months+1]
+    Cap = Scaled * 1000000
+    hist(Cap, main = title_cap, sub = subtitle, xlab = "Market value (Eur)", xlim = c(0,3*Value), breaks = 15)
+  })
   
   observeEvent(input$button, {
-    simResults$stockOnly <- Simulate_Stocks(unlist(strsplit(input$tickers,",")), format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$tickers,",")))), nrow = 1), 100000, input$stockweight, input$bondweight)
+    simResults$stockOnly <- Simulate_Stocks(unlist(strsplit(input$tickers,",")), format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$tickers,",")))), nrow = 1), 1000000, input$stockweight, input$bondweight)
   })
   
-  observeEvent(simResults$stockOnly, {
-    print("A stock simulation just got created! Now invoking bond simulations")
-    simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
-  })
+  # observeEvent(simResults$stockOnly, {
+  #   print("A stock simulation just got created! Now invoking bond simulations")
+  #   simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
+  # })
   
   maketable <- eventReactive(input$button,{
     result <- table(c("Value-at-Risk","b"),c(1,2))
@@ -209,9 +232,9 @@ server <- function(input,output,session) {
   
   output$tickerSearchRes <- renderUI({searchResButtons()})
   output$text <- renderText({text_reactive()})
-  # output$pricepath <- renderPlot({path_reactive()})
-   output$tuottojakauma1 <- renderPlot({return_histogram()})
-  # output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
+  output$pricepath <- renderPlot({pricePaths()})
+  output$tuottojakauma1 <- renderPlot({return_histogram()})
+  output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
   
   output$stats <- renderTable({maketable()})
   

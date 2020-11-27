@@ -149,7 +149,7 @@ Simulate_Bonds <- function(ISIN,Begin,End,Steps,N,bondWeights,stockOnly,stock_al
     for (i in length(ISIN)) {
       ISIN_ = ISIN[i]
       # Set total portfolio weight:
-      w_ = bond_stock[1]*weights_bond[i]
+      w_ = bond_stock[1]*bondWeights[i]
       # Run bond simulation:
       simResult = stockOnly + w_*Bond_sim(ISIN_, N, Begin, End, Steps)
     }

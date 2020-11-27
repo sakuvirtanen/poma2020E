@@ -126,6 +126,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
     mainPanel(
       tabsetPanel(
         tabPanel("Assets",dataTableOutput("filetable")),
+        # tabPanel("Assets",uiOutput("portfolioStocks")),
         tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
         tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
         tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
@@ -148,7 +149,6 @@ server <- function(input,output,session) {
   
   simResults <- reactiveValues()
   stockPortfolio <- reactiveValues()
-  
   
   #  Create a list for storing the event handlers for individual search result buttons
   obsList <- list()
@@ -173,9 +173,10 @@ server <- function(input,output,session) {
       # print(btName)
       if (is.null(obsList[[btName]])) {
         obsList[[btName]] <<- observeEvent(input[[btName]], {
-          stockPortfolio$selected[btName] <<- c(btName,1)
+          stockPortfolio$tickers[btName] <- btName
+          stockPortfolio$weights[btName] <- 1
           # print(stockPortfolio$selected[btName])
-          # print(stockPortfolio$selected)
+          # print(stockPortfolio$selected[btName])
           # print(btName)
           # print(resultButtons)
         },autoDestroy = TRUE)
@@ -189,8 +190,35 @@ server <- function(input,output,session) {
   }
   )
   
-  observeEvent(stockPortfolio$selected, {
-    
+  # selectedPortfolioConstructor <- eventReactive(stockPortfolio$weights, {
+  #   selectedTickers <- c()
+  #   selectedWeights <- c()
+  #   
+  #   for (s in stockPortfolio$tickers) {
+  #     selectedTickers <- c(selectedTickers,s[1])
+  #   }
+  #   
+  #   for (s in stockPortfolio$weights) {
+  #     selectedWeights <- c(selectedWeights,s[1])
+  #   }
+  #   
+  #   print("Weights changed")
+  #   print("Current tickers:")
+  #   print(selectedTickers)
+  #   
+  #   rows <- selectedTickers
+  #   
+  #   for (i in 1:length(selectedTickers)) {
+  #     rows[i] <- fluidRow(
+  #       p(selectedTickers[i]),
+  #       p(selectedWeights[i])
+  #     )
+  #   }
+  #   
+  # })
+  
+  observeEvent(stockPortfolio, {
+    print("stockPortfolio changed")
   })
   
   tickerList <- eventReactive(input$button,{
@@ -198,6 +226,13 @@ server <- function(input,output,session) {
   })
   
   pricePaths <- eventReactive(simResults$stockOnly, {
+    
+    selectedTickers <- c()
+
+    for (s in stockPortfolio$tickers) {
+      selectedTickers <- c(selectedTickers,s[1])
+    }
+    
     # Margin adjustment
     par(mar = 5*c(1,1,1,1))
     
@@ -211,7 +246,7 @@ server <- function(input,output,session) {
     
     # Set title and subtitle:
     title_ = "Price path simulation"
-    sub_ = paste(unlist(strsplit(input$tickers,",")), collapse = ", ")
+    sub_ = paste(selectedTickers, collapse = ", ")
     
     # Merge title and subtitle:
     full_title = paste(title_, "\n",sub_)
@@ -277,7 +312,19 @@ server <- function(input,output,session) {
   
   
   observeEvent(input$button, {
-    simResults$stockOnly <- Simulate_Stocks(unlist(strsplit(input$tickers,",")), format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$tickers,",")))), nrow = 1),input$notional,input$stockweight,input$bondweight)
+    selectedTickers <- c()
+    selectedWeights <- c()
+    
+    for (s in stockPortfolio$tickers) {
+      selectedTickers <- c(selectedTickers,s[1])
+    }
+    
+    for (s in stockPortfolio$weights) {
+      selectedWeights <- c(selectedWeights,s[1])
+    }
+    
+    print(length(selectedTickers))
+    simResults$stockOnly <- Simulate_Stocks(selectedTickers, format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(selectedWeights, nrow = 1),input$notional,input$stockweight,input$bondweight)
   })
   
   observeEvent(simResults$stockOnly, {
@@ -290,12 +337,30 @@ server <- function(input,output,session) {
     result <- table(c("Value-at-Risk","b",),c(1,2))
   })
   
-  selectedData <- eventReactive(input$pf_button, {
-    tickers = unlist(strsplit(input$tickers,","))
-    f = as.data.frame(seq(1,length(tickers),1),tickers)
-    colnames(f) = c('Ticker')
-    print(f)
-    print(length(f))
+  selectedData <- eventReactive(stockPortfolio$tickers, {
+    
+    selectedTickers <- c()
+    selectedWeights <- c()
+    deleteButtons <- list()
+      
+    for (s in stockPortfolio$tickers) {
+      selectedTickers <- c(selectedTickers,s[1])
+      deleteButtons[[s[1]]] <- actionButton(paste(s[1],"del"),"Del")
+    }
+    
+    for (s in stockPortfolio$weights) {
+      selectedWeights <- c(selectedWeights,s[1])
+    }
+    
+    print(selectedTickers)
+    print(selectedWeights)
+    
+    # tickers = unlist(strsplit(input$tickers,","))
+    # print(stockPortfolio$weights)
+    f = cbind(selectedTickers,selectedWeights,deleteButtons)
+    colnames(f) = c('Ticker',"Weight","Delete")
+    # print(f)
+    # print(length(f))
     datatable(f)
     # Create the table (using table from htmlTables doc as example)
     #HTML(
@@ -332,7 +397,7 @@ server <- function(input,output,session) {
   })
   
   output$tickerSearchRes <- renderUI({searchResButtons()})
-  output$portfolioStocks <- renderUI({portfolioStocks()})
+  output$portfolioStocks <- renderUI({selectedPortfolioConstructor()})
   output$text <- renderText({tickerList()})
   output$pricepath <- renderPlot({pricePaths()})
   output$tuottojakauma1 <- renderPlot({return_histogram()})

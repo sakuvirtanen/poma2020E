@@ -2,10 +2,10 @@
 # FILL THE VALUES BELOW TO CORRESPOND WORKSPACE
 ###################################################
 
-stocks_filename = "Suomi-osakkeet.xlsx"
+stocks_filename = "data/Suomi-osakkeet.xlsx"
 return_sheet = "Returns"
 
-bonds_filename = "Bondit.xlsx"
+bonds_filename = "data/finnish_corporate_bonds.xlsx"
 bond_sheet = "Sheet1"
 
 source("Bond_price.r")
@@ -159,6 +159,8 @@ Simulate_Bonds <- function(ISIN,Begin,End,Steps,N,bondWeights,bondSim,stock_allo
     w_ = bond_stock[1]
     simResult = bondSim + w_*matrix(1, nrow = nrow(bondSim), ncol = ncol(bondSim))
   }
+  
+  
   return(simResult)
 }
 # 

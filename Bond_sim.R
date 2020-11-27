@@ -2,15 +2,17 @@
 Bond_sim <- function(ISIN, N, Begin_Date, End_Date, Steps) {
   
   # Date conversion for matching data ranges:
-  Begin_Date_ = format(Begin_Date, "%Y-%m")
-  End_Date_ = format(End_Date, "%Y-%m")
-  Sim_First_Date = End_Date_
-  
+  Begin_Date_ = as.yearmon(Begin_Date, "%Y-%m")
+  Begin_Date_ = as.Date(Begin_Date_)
+  Begin_Date_ = format(Begin_Date_,"%Y-%m")
+  class(Begin_Date_)
+  End_Date_ = End_Date
+  Sim_First_Date_ = End_Date_
+
   # Extract bond data:
   Bond_history = Bonds[Bonds$ISIN==ISIN,]
   # Format dates to make matching
   Bond_history$Date = format(as.Date(Bond_history$Date), "%Y-%m")
-  
   # Store maturity day:
   Maturity = as.Date(Bond_history$Maturity[1])
   # Store coupon frequency:
@@ -19,7 +21,6 @@ Bond_sim <- function(ISIN, N, Begin_Date, End_Date, Steps) {
   Coupon = Bond_history$Coupon[1]
   # Store yield history:
   Yields = Bond_history$`Mid Yield`[c(which(Bond_history$Date == Begin_Date_):which(Bond_history$Date == End_Date_))]
-  
   # Vasicek model calibration:
   
   # Estimate the regression:
@@ -51,8 +52,9 @@ Bond_sim <- function(ISIN, N, Begin_Date, End_Date, Steps) {
     }
   }
   
+
   # Initialize matrix for simulated prices at the end:
-  Simulations = Bond_price_matrix(Begin_Date, Sim_First_Date, Maturity, Steps, yields_sim/100, Coupon_frequency, Coupon/100)
+  Simulations = Bond_price_matrix(Sim_First_Date_, Maturity, Steps, yields_sim/100, Coupon_frequency, Coupon/100)
   # return results:
   return(Simulations)
 }

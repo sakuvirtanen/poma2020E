@@ -23,6 +23,7 @@ source("Bond_sim.r")
 # Initialize library
 library(readxl)
 library(lubridate) 
+library(zoo)
 
 # Read returns:
 Returns <- read_excel(stocks_filename, sheet = return_sheet)
@@ -143,18 +144,16 @@ Simulate_Bonds <- function(ISIN,Begin,End,Steps,N,bondWeights,stockOnly,stock_al
   bond_stock = c(bond_alloc,stock_alloc)
   bond_stock = bond_stock/sum(bond_stock)
   
-  # If ISINs are set - run bond simulation:
   if (length(ISIN) > 0) {
     # Loop each bond:
     for (i in length(ISIN)) {
       ISIN_ = ISIN[i]
       # Set total portfolio weight:
-      w_ = bond_stock[1]*bondWeights[i]
+      w_ = bond_stock[1]*weights_bond[i]
       # Run bond simulation:
-      simResult = stockOnly + w_*Bond_sim(ISIN_, N, Begin_Date, End_Date, Steps)
+      simResult = stockOnly + w_*Bond_sim(ISIN_, N, Begin, End, Steps)
     }
-  
-  # If no ISIN given - fill bond share with cash:
+    # If no ISIN given - fill bond share with cash:
   } else {
     w_ = bond_stock[1]
     simResult = stockOnly + w_*matrix(1, nrow = nrow(stockOnly), ncol = ncol(stockOnly))

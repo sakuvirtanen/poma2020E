@@ -102,8 +102,8 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
       
             column(12,dateRangeInput(inputId = "dates",
                      "Choose the start and end date",
-                     start = "2016-07-01",
-                     end = "2018-08-01",)),
+                     start = "2018-10-01",
+                     end = "2019-10-01",)),
       
             column(12,sliderInput("slide","Number of simulations",
                   min=0,max=1000,value=5)),
@@ -144,6 +144,7 @@ server <- function(input,output,session) {
   shinyFileChoose(input, "stockFile", roots = volumes, filetypes=c("", "xlsx", "xls"), session = session)
   
   simResults <- reactiveValues()
+  stockPortfolio <- reactiveValues()
   
   
   #  Create a list for storing the event handlers for individual search result buttons
@@ -169,7 +170,9 @@ server <- function(input,output,session) {
       # print(btName)
       if (is.null(obsList[[btName]])) {
         obsList[[btName]] <<- observeEvent(input[[btName]], {
-          updateTextInput(session, "tickers", value=paste0(input$tickers,",",btName))
+          stockPortfolio$selected[btName] <<- c(btName,1)
+          # print(stockPortfolio$selected[btName])
+          # print(stockPortfolio$selected)
           # print(btName)
           # print(resultButtons)
         },autoDestroy = TRUE)
@@ -183,7 +186,11 @@ server <- function(input,output,session) {
   }
   )
   
-  text_reactive <- eventReactive(input$button,{
+  observeEvent(stockPortfolio$selected, {
+    
+  })
+  
+  tickerList <- eventReactive(input$button,{
     input$tickers
   })
   
@@ -209,10 +216,10 @@ server <- function(input,output,session) {
     
     stock_df = as.matrix(simResults$stockOnly)
     stock_df = as.data.frame(t(stock_df))
-    print(length(stock_df))
+    # print(length(stock_df))
     
     stock_df$Month = seq(1,input$months+1)
-    print(stock_df)
+    # print(stock_df)
     
     d = stock_df
     
@@ -252,7 +259,7 @@ server <- function(input,output,session) {
   })
   
   return_histogram <- eventReactive(input$button,{
-    histData <- simResults$stockOnly
+    histData <- simResults$withBonds
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
     VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
     subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
@@ -262,7 +269,7 @@ server <- function(input,output,session) {
   })
 
   marketcap_histogram <- eventReactive(input$button, {
-    histData <- simResults$stockOnly
+    histData <- simResults$withBonds
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
     # Normalized values at end of period:
     Scaled = histData[,input$months+1]
@@ -284,6 +291,7 @@ server <- function(input,output,session) {
     simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
   })
   
+  
   maketable <- eventReactive(input$button,{
     result <- table(c("Value-at-Risk","b"),c(1,2))
   })
@@ -304,7 +312,8 @@ server <- function(input,output,session) {
   })
   
   output$tickerSearchRes <- renderUI({searchResButtons()})
-  output$text <- renderText({text_reactive()})
+  output$portfolioStocks <- renderUI({portfolioStocks()})
+  output$text <- renderText({tickerList()})
   output$pricepath <- renderPlot({pricePaths()})
   output$tuottojakauma1 <- renderPlot({return_histogram()})
   output$tuottojakauma2 <- renderPlot({marketcap_histogram()})

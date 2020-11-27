@@ -21,72 +21,101 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       
-      shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail"),
-      
-      textOutput("stockFilePath"),
-      
-      
-      searchInput(inputId="tickerSearch",
-                  label="Search stock data by ticker",
-                  placeholder = "",
-                  btnSearch = icon("search"), 
-                  btnReset = icon("remove"),
-                  width = "100%"),
-      #verbatimTextOutput("tickerSearchRes"),
-      uiOutput("tickerSearchRes"),
-      
-      textInput(inputId = "tickers",
-                label = "Give tickers:",
-                value = "NOKIA.HE"),
-      
-      textInput(inputId = "isins",
-                label = "Give ISINs",
-                value = "XS1333685409"),
+      fluidRow(
+        
+        column(12,h2("Select Tickers"),style="background-color:#ffff99;",
+          
+          fluidRow(
+        
+            column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
+            
+            column(12,textOutput("stockFilePath")),
+            
+            column(12,searchInput(inputId="tickerSearch",
+                        label="Search stock data by ticker",
+                        placeholder = "",
+                        btnSearch = icon("search"), 
+                        btnReset = icon("remove"),
+                        width = "100%")),
+            #verbatimTextOutput("tickerSearchRes"),
+            
+            column(12,uiOutput("tickerSearchRes")),
+            
+            column(12,textInput(inputId = "tickers",
+                      label = "Give tickers:",
+                      value = "NOKIA.HE")),
+            
+            column(12,textInput(inputId = "isins",
+                      label = "Give ISINs",
+                      value = "XS1333685409")),
+          )
+        )
+      ),
       
       
       fluidRow(
         
-        column(width=6,numericInput(inputId = "stockweight",
-                              label = "Stock allocation (%):",
-                              value = 100,
-                              min = 0,
-                              max = 100)),
+        column(12,h2("Asset Allocation"),style="background-color:#ccff99;",
+          fluidRow(
+          
+            column(width=4,numericInput(inputId = "stockweight",
+                                  label = "Stocks (%):",
+                                  value = 100,
+                                  min = 0,
+                                  max = 100)),
+            
+            column(width=4,numericInput(inputId = "bondweight",
+                                  label = "Corporate bonds (%):",
+                                  value = 0,
+                                  min = 0,
+                                  max = 100)),
+            
+            column(width=4,numericInput(inputId = "govbondweight",
+                                        label = "Government bonds (%):",
+                                        value = 0,
+                                        min = 0,
+                                        max = 100))
+          )
+        ),
+        column(12,textOutput("weight_check"))
         
-        column(width=6,numericInput(inputId = "bondweight",
-                              label = "Bond allocation (%):",
-                              value = 0,
-                              min = 0,
-                              max = 100))
 
       ),
-    
       
-      numericInput(inputId = "months",
+      fluidRow(
+        column(12,h2("Simulation specs"),style="background-color:#ffff99;",
+                      
+          fluidRow(
+            
+            column(6,numericInput(inputId = "months",
                    label = "Number of months to simulate:",
                    value = 5,
                    min = 1,
-                   max = 60),
+                   max = 60)),
       
-      numericInput(inputId = "notional",
+            column(6,numericInput(inputId = "notional",
                    label = "Notional portfolio value at beginning:",
                    value = 1000000,
                    min = 1,
-                   max = 2000000),
+                   max = 2000000)),
+      
+      
+            column(12,dateRangeInput(inputId = "dates",
+                     "Choose the start and end date",
+                     start = "2016-07-01",
+                     end = "2018-08-01",)),
+      
+            column(12,sliderInput("slide","Number of simulations",
+                  min=0,max=1000,value=10)),
+          )
+        )
+      ), 
       
       numericInput(inputId = "var",
                    label = "Value at risk:",
                    value = 0.05,
                    min = 0,
                    max = 1),
-      
-      
-      dateRangeInput(inputId = "dates",
-                     "Choose the start and end date",
-                     start = "2016-07-01",
-                     end = "2018-08-01",),
-      
-      sliderInput("slide","Number of simulations",
-                  min=0,max=1000,value=10),
       
       actionButton("button",label="Run simulation"),
       
@@ -205,7 +234,7 @@ server <- function(input,output,session) {
     histData <- simResults$stockOnly
     #print(histData)
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
-    print(Scaled_return)
+    #print(Scaled_return)
     VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
     subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
     hist(Scaled_return, main = input$tickers, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
@@ -217,7 +246,7 @@ server <- function(input,output,session) {
     # Normalized values at end of period:
     Scaled = histData[,input$months+1]
     Cap = Scaled * input$notional
-    print(Cap)
+    #print(Cap)
     #VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
     #subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
     hist(Cap, main = input$tickers, xlab = "Market value (Eur)", xlim = c(0,3*input$notional), breaks = 15)

@@ -217,6 +217,8 @@ server <- function(input,output,session) {
   #   
   # })
   
+  
+  
   observeEvent(stockPortfolio, {
     print("stockPortfolio changed")
   })

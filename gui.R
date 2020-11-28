@@ -69,8 +69,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                                   value = 0,min = 0,max = 100)),
             
           )
-        ),
-        column(12,textOutput("weight_check"))
+        )
         
 
       ),
@@ -109,9 +108,9 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
       tabsetPanel(
         tabPanel('Portfolio',
           tabsetPanel(
-            tabPanel("Stocks",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase")),
+            tabPanel("Stocks",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase"))#,
             # tabPanel("Assets",uiOutput("portfolioStocks")),
-            tabPanel("Bonds",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase"))
+            #tabPanel("Bonds",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase"))
           )
         ),
         tabPanel('Simulation results',
@@ -184,7 +183,7 @@ server <- function(input,output,session) {
         
       }
       fluidRow(
-        actionButton(btName,btName)
+        column(12,actionButton(btName,btName))
         
       )
     })
@@ -275,8 +274,7 @@ server <- function(input,output,session) {
       ggtitle("Simulated Price Paths") +
       theme_light() +
       theme(legend.title = element_blank()) +
-      theme(legend.position = "none") +
-      geom_smooth(data = . %>% filter(x == max(Month) | y == max(value)), method = lm)
+      theme(legend.position = "none")
       
       #geom_line(aes(x=Month,y=Means))
     

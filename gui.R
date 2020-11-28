@@ -377,9 +377,12 @@ server <- function(input,output,session) {
     VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
     kurt = kurtosis(Scaled_return)
     skew = skewness(Scaled_return)
+    min_value = min(Scaled_return)
+    max_value = max(Scaled_return)
+    mean_value = mean(Scaled_return)
     result <- data.frame(
-                  Statistic = c('Value-at-Risk','Skew','Kurtosis'),
-                  Value = c(-VaR_q,skew,kurt)
+                  Statistic = c('Value-at-Risk','Skew','Kurtosis','Min value','Max value','Mean'),
+                  Value = c(-VaR_q,skew,kurt,min_value,max_value,mean_value)
               )
   })
   

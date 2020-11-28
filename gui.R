@@ -47,7 +47,6 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
             column(12,textInput(inputId = "isins",
                       label = "Give ISINs",
                       value = "XS1333685409")),
-            
           )
         )
       ),
@@ -93,7 +92,6 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                      "Choose the start and end date",
                      start = "2018-10-01",
                      end = "2019-10-01",)),
-            
           )
         )
       ), 
@@ -109,12 +107,21 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Assets",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last")),
-        # tabPanel("Assets",uiOutput("portfolioStocks")),
-        tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
-        tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
-        tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
-        tabPanel("Key information",tableOutput("stats"),icon = icon("info"))
+        tabPanel('Portfolio',
+          tabsetPanel(
+            tabPanel("Stocks",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase")),
+            # tabPanel("Assets",uiOutput("portfolioStocks")),
+            tabPanel("Bonds",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase"))
+          )
+        ),
+        tabPanel('Simulation results',
+          tabsetPanel(
+            tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
+            tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
+            tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
+            tabPanel("Key information",tableOutput("stats"),icon = icon("info"))
+          )
+        )
       )
     ),
     
@@ -249,21 +256,29 @@ server <- function(input,output,session) {
     stock_df = as.data.frame(t(stock_df))
     # print(length(stock_df))
     
+    #means = colMeans(simResults$stockOnly)*input$notional
+    
     stock_df$Month = seq(1,input$months+1)
+    #stock_df$Means = cMeans(simResults$stockOnly) #*input$notional
     # print(stock_df)
     
     d = stock_df
     
+    
+    #print(length(means))
     d <- melt(d, id.vars="Month")
     #print(d)
     # Everything on the same plot
+    print(stock_df)
     ggplot(d, aes(Month,value, col=variable)) + 
       geom_line() + 
       ggtitle("Simulated Price Paths") +
       theme_light() +
       theme(legend.title = element_blank()) +
-      theme(legend.position = "none")
-      #geom_line(aes(x=Month,y=colMeans(stock_df)*input$notional))
+      theme(legend.position = "none") +
+      geom_smooth(data = . %>% filter(x == max(Month) | y == max(value)), method = lm)
+      
+      #geom_line(aes(x=Month,y=Means))
     
     # First path plot:
     #plot(T, simResults$stockOnly[1,]*input$notional, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
@@ -364,8 +379,6 @@ server <- function(input,output,session) {
       stringsAsFactors = FALSE
     )
     
-    # print(f)
-    # print(length(f))
     f <- datatable(f)
 
   })
@@ -374,11 +387,6 @@ server <- function(input,output,session) {
   observeEvent(input$select_button, {
     selectedRow <- as.numeric(strsplit(input$select_button, "_")[[1]][2])
     portfoliodf$data <- portfoliodf$data[-c(selectedRow),]
-  })
-  
-  frontier_react <- eventReactive(input$button,{
-    plot(c(1,2,3),c(3,5,8),main="Efficient Frontier",
-         xlab="Standard deviation",ylab="Excess returns")
   })
 
   # This function outputs the text display of current stock file

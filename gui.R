@@ -44,16 +44,9 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
             
             column(12,uiOutput("tickerSearchRes")),
             
-            column(12,textInput(inputId = "tickers",
-                      label = "Give tickers:",
-                      value = "NOKIA.HE")),
-            
             column(12,textInput(inputId = "isins",
                       label = "Give ISINs",
                       value = "XS1333685409")),
-            
-            
-            column(12,actionButton("pf_button",label="Add to portfolio"))
             
           )
         )
@@ -64,18 +57,18 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
         
         column(12,h2("Asset Allocation"),style="background-color:#DDDDDD;",
           fluidRow(
-          
-            column(width=4,numericInput(inputId = "stockweight",
-                                  label = "Stocks (%):",
-                                  value = 100,
-                                  min = 0,
-                                  max = 100)),
             
-            column(width=4,numericInput(inputId = "bondweight",label = "Corporate bonds (%):",
+            column(12,numericInput(inputId = "notional",
+                                  label = "Notional portfolio value at beginning:",
+                                  value = 1000000,min = 1,max = 2000000)),
+          
+            column(width=6,numericInput(inputId = "stockweight",
+                                  label = "Stocks (%):",
+                                  value = 100,min = 0,max = 100)),
+            
+            column(width=6,numericInput(inputId = "bondweight",label = "Bonds (%):",
                                   value = 0,min = 0,max = 100)),
             
-            column(width=4,numericInput(inputId = "govbondweight",label = "Government bonds (%):",
-                                        value = 0,min = 0,max = 100))
           )
         ),
         column(12,textOutput("weight_check"))
@@ -88,50 +81,40 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                       
           fluidRow(
             
-            column(6,numericInput(inputId = "months",
+            column(6,sliderInput(inputId = "months",
                    label = "Number of months to simulate:",
-                   value = 10,
-                   min = 1,
-                   max = 60)),
-      
-            column(6,numericInput(inputId = "notional",
-                   label = "Notional portfolio value at beginning:",
-                   value = 1000000,
-                   min = 1,
-                   max = 2000000)),
-      
+                   value = 10,min = 1,max = 60)),
+            
+            column(6,sliderInput("slide","Number of simulations",
+                                  min=0,max=1000,value=20)),
+    
       
             column(12,dateRangeInput(inputId = "dates",
                      "Choose the start and end date",
                      start = "2018-10-01",
                      end = "2019-10-01",)),
-      
-            column(12,sliderInput("slide","Number of simulations",
-                  min=0,max=1000,value=20)),
+            
           )
         )
       ), 
       
       numericInput(inputId = "var",
                    label = "Value at risk:",
-                   value = 0.05,
-                   min = 0,
-                   max = 1),
+                   value = 0.05,min = 0,max = 1),
       
       actionButton("button",label="Run simulation"),
-      actionButton("button",label="Download simulated data")
+      actionButton("download_button",label="Download simulated data")
       
     ),
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Assets",dataTableOutput("filetable"),actionButton("deleteLastStock","Delete last")),
+        tabPanel("Assets",dataTableOutput("filetable"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase")),
         # tabPanel("Assets",uiOutput("portfolioStocks")),
         tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
         tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
         tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
-        tabPanel("Key information",tableOutput("stats"),icon = icon("info")),
-        tabPanel("Efficient Frontier",plotOutput("efficientfrontier"))
+        tabPanel("Key information",tableOutput("stats"),icon = icon("info"))
       )
     ),
     
@@ -216,8 +199,6 @@ server <- function(input,output,session) {
   #   }
   #   
   # })
-  
-  
   
   observeEvent(stockPortfolio, {
     print("stockPortfolio changed")
@@ -417,12 +398,6 @@ server <- function(input,output,session) {
     
   })
   
-  
-  frontier_react <- eventReactive(input$button,{
-    plot(c(1,2,3),c(3,5,8),main="Efficient Frontier",
-         xlab="Standard deviation",ylab="Excess returns")
-  })
-  
   # This function outputs the text display of current stock file
   output$stockFilePath <- renderText({
     if (is.integer(input$file)) {
@@ -440,10 +415,6 @@ server <- function(input,output,session) {
   output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
   output$filetable <- renderDataTable({selectedData()},server = FALSE, escape = FALSE, selection = 'none')
   output$stats <- renderTable({maketable()})
-  
-  output$efficientfrontier <- renderPlot({frontier_react()})
-  
-
 }
 
 shinyApp(ui,server)

@@ -125,7 +125,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Assets",dataTableOutput("filetable")),
+        tabPanel("Assets",dataTableOutput("filetable"),actionButton("deleteLastStock","Delete last")),
         # tabPanel("Assets",uiOutput("portfolioStocks")),
         tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
         tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
@@ -223,6 +223,31 @@ server <- function(input,output,session) {
   
   tickerList <- eventReactive(input$button,{
     input$tickers
+  })
+  
+  observeEvent(input$deleteLastStock, {
+    selectedTickers <- c()
+    selectedWeights <- c()
+    
+    for (s in stockPortfolio$tickers) {
+      selectedTickers <- c(selectedTickers,s[1])
+    }
+    
+    for (s in stockPortfolio$weights) {
+      selectedWeights <- c(selectedWeights,s[1])
+    }
+    
+    delName = selectedTickers[length(selectedTickers)]
+    
+    tickList <- stockPortfolio$tickers
+    tickList <- tickList[-length(tickList)]
+    
+    weightList <- stockPortfolio$weights
+    weightList <- weightList[-length(weightList)]
+    
+    stockPortfolio$tickers <- tickList
+    stockPortfolio$weights <- weightList
+    # print(stockPortfolio$tickers[delName])
   })
   
   pricePaths <- eventReactive(simResults$stockOnly, {
@@ -323,12 +348,12 @@ server <- function(input,output,session) {
       selectedWeights <- c(selectedWeights,s[1])
     }
     
-    print(length(selectedTickers))
+    # print(length(selectedTickers))
     simResults$stockOnly <- Simulate_Stocks(selectedTickers, format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(selectedWeights, nrow = 1),input$notional,input$stockweight,input$bondweight)
   })
   
   observeEvent(simResults$stockOnly, {
-    print("A stock simulation just got created! Now invoking bond simulations")
+    # print("A stock simulation just got created! Now invoking bond simulations")
     simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
   })
   
@@ -337,31 +362,40 @@ server <- function(input,output,session) {
     result <- table(c("Value-at-Risk","b",),c(1,2))
   })
   
+  # This is a helper function found on SO, seeing if it helps with generating deletion buttons for stocks in portfolio
+  shinyInput <- function(FUN, len, id, ...) {
+    inputs <- character(len)
+    for (i in seq_len(len)) {
+      inputs[i] <- as.character(FUN(paste0(id, i), ...))
+    }
+    inputs
+  }
+  
   selectedData <- eventReactive(stockPortfolio$tickers, {
     
     selectedTickers <- c()
     selectedWeights <- c()
-    deleteButtons <- list()
       
     for (s in stockPortfolio$tickers) {
       selectedTickers <- c(selectedTickers,s[1])
-      deleteButtons[[s[1]]] <- actionButton(paste(s[1],"del"),"Del")
     }
     
     for (s in stockPortfolio$weights) {
       selectedWeights <- c(selectedWeights,s[1])
     }
     
-    print(selectedTickers)
-    print(selectedWeights)
+    # print(selectedTickers)
+    # print(selectedWeights)
     
     # tickers = unlist(strsplit(input$tickers,","))
     # print(stockPortfolio$weights)
-    f = cbind(selectedTickers,selectedWeights,deleteButtons)
-    colnames(f) = c('Ticker',"Weight","Delete")
+    f = cbind(selectedTickers,selectedWeights,shinyInput(actionButton, length(selectedWeights), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"delete_button\",  this.id)' ))
     # print(f)
     # print(length(f))
-    datatable(f)
+    f <- datatable(f)
+    
+    
+    
     # Create the table (using table from htmlTables doc as example)
     #HTML(
     #  htmlTable(matrix(paste("Content", LETTERS[1:16]), 
@@ -402,7 +436,7 @@ server <- function(input,output,session) {
   output$pricepath <- renderPlot({pricePaths()})
   output$tuottojakauma1 <- renderPlot({return_histogram()})
   output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
-  output$filetable <- renderDataTable({selectedData()})
+  output$filetable <- renderDataTable({selectedData()},server = FALSE, escape = FALSE, selection = 'none')
   output$stats <- renderTable({maketable()})
   
   output$efficientfrontier <- renderPlot({frontier_react()})

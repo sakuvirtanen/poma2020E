@@ -9,6 +9,7 @@ library(readxl)
 library(dplyr)
 library(reshape2)
 library(DT)
+library(kableExtra)
 source("scripts.R")
 
 ui <- fluidPage(style="background-color:#FFFFFF;",
@@ -73,8 +74,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                                   value = 0,min = 0,max = 100)),
             
           )
-        ),
-        column(12,textOutput("weight_check"))
+        )
         
 
       ),
@@ -96,32 +96,47 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                      "Choose the start and end date",
                      start = "2018-10-01",
                      end = "2019-10-01",)),
-            
           )
         )
       ), 
       
       numericInput(inputId = "var",
                    label = "Value at risk:",
-                   value = 0.05,min = 0,max = 1),
+                   value = 5,min = 0,max = 10),
       
-      actionButton("button",label="Run simulation"),
-      actionButton("download_button",label="Download simulated data")
+      actionButton("button",label="Run simulation")
       
     ),
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Assets",dataTableOutput("stockTable"), dataTableOutput("bondTable")),
-        # tabPanel("Assets",uiOutput("portfolioStocks")),
-        tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
-        tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
-        tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o")),
-        tabPanel("Key information",tableOutput("stats"),icon = icon("info"))
+        tabPanel('Portfolio',
+          tabsetPanel(
+            tabPanel("Stocks",dataTableOutput("stockTable"),icon=icon("suitcase")),
+            tabPanel("Bonds", dataTableOutput("bondTable"), icon=icon("suitcase"))
+            # tabPanel("Assets",uiOutput("portfolioStocks")),
+            #tabPanel("Bonds",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last"),icon=icon("suitcase"))
+          )
+        ),
+        tabPanel('Simulation results',
+          fluidRow(
+              column(6,tabsetPanel(
+                    tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
+                    tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
+                    tabPanel("Market cap distribution",plotOutput("tuottojakauma2"),icon = icon("bar-chart-o"))
+              )),
+           
+
+              column(6,tabsetPanel(
+                    tabPanel("Statistics",tableOutput("dist_stats"))
+              ))
+              
+          )
+          )
+        )
       )
-    ),
+    )
     
-  )
   
 )
 
@@ -182,7 +197,7 @@ server <- function(input,output,session) {
         
       }
       fluidRow(
-        actionButton(btName,btName)
+        column(12,actionButton(btName,btName))
         
       )
     })
@@ -263,21 +278,28 @@ server <- function(input,output,session) {
     stock_df = as.data.frame(t(stock_df))
     # print(length(stock_df))
     
+    #means = colMeans(simResults$stockOnly)*input$notional
+    
     stock_df$Month = seq(1,input$months+1)
+    #stock_df$Means = cMeans(simResults$stockOnly) #*input$notional
     # print(stock_df)
     
     d = stock_df
     
+    
+    #print(length(means))
     d <- melt(d, id.vars="Month")
     #print(d)
     # Everything on the same plot
+    print(stock_df)
     ggplot(d, aes(Month,value, col=variable)) + 
       geom_line() + 
       ggtitle("Simulated Price Paths") +
       theme_light() +
       theme(legend.title = element_blank()) +
       theme(legend.position = "none")
-      #geom_line(aes(x=Month,y=colMeans(stock_df)*input$notional))
+      
+      #geom_line(aes(x=Month,y=Means))
     
     # First path plot:
     #plot(T, simResults$stockOnly[1,]*input$notional, main = full_title, ylim = y_scale, type = "l", xlab = x_lab, ylab = y_lab)
@@ -297,8 +319,8 @@ server <- function(input,output,session) {
   return_histogram <- eventReactive(simResults$withBonds,{
     histData <- simResults$withBonds
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
-    VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
-    subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
+    VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
+    subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var/100,"%:" , signif(VaR_q, digits = 3))
     f = data.frame(Scaled_return)
     ggplot(f,aes(x=Scaled_return)) + geom_histogram()
     #hist(Scaled_return, main = input$tickers, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
@@ -310,10 +332,10 @@ server <- function(input,output,session) {
     # Normalized values at end of period:
     Scaled = histData[,input$months+1]
     Cap = Scaled * input$notional
-    VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
-    subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var,"%:" , signif(VaR_q, digits = 3))
+    VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
+    subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var/100,"%:" , signif(VaR_q, digits = 3))
     f = data.frame(Cap)
-    ggplot(f,aes(x=Scaled_return)) + geom_histogram()
+    ggplot(f,aes(x=Cap)) + geom_histogram()
     #hist(Cap, main = input$tickers, xlab = "Market value (Eur)", xlim = c(0,3*input$notional), breaks = 15)
   })
   
@@ -348,9 +370,17 @@ server <- function(input,output,session) {
     }
   })
   
+  library(moments)
   
-  maketable <- eventReactive(input$button,{
-    result <- table(c("Value-at-Risk","b",),c(1,2))
+  maketable <- eventReactive(simResults$withBonds,{
+    Scaled_return = simResults$withBonds[,input$months+1]/simResults$withBonds[,1]*100-100
+    VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
+    kurt = kurtosis(Scaled_return)
+    skew = skewness(Scaled_return)
+    result <- data.frame(
+                  Statistic = c('Value-at-Risk','Skew','Kurtosis'),
+                  Value = c(-VaR_q,skew,kurt)
+              )
   })
   
   # This is a helper function found on SO, seeing if it helps with generating deletion buttons for stocks in portfolio
@@ -387,8 +417,6 @@ server <- function(input,output,session) {
       stringsAsFactors = FALSE
     )
     
-    # print(f)
-    # print(length(f))
     f <- datatable(f)
 
   })
@@ -402,11 +430,6 @@ server <- function(input,output,session) {
   observeEvent(input$bondDel_button, {
     selectedRow <- as.numeric(strsplit(input$bondDel_button, "_")[[1]][2])
     portfoliodf$bondData <- portfoliodf$bondData[-c(selectedRow),]
-  })
-  
-  frontier_react <- eventReactive(input$button,{
-    plot(c(1,2,3),c(3,5,8),main="Efficient Frontier",
-         xlab="Standard deviation",ylab="Excess returns")
   })
 
   # This function outputs the text display of current stock file
@@ -430,8 +453,7 @@ server <- function(input,output,session) {
   output$bondTable <- DT::renderDataTable(
     portfoliodf$bondData, server = FALSE, escape = FALSE, selection = 'none'
   )
-  output$efficientfrontier <- renderPlot({frontier_react()})
-  output$stats <- renderTable({maketable()})
+  output$dist_stats <- renderTable({maketable()})
 }
 
 shinyApp(ui,server)

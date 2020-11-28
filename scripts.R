@@ -72,6 +72,7 @@ VaR_ = 0.05
 
 # If tickers are set: run stock simulation:
 Simulate_Stocks <- function(Tickers, Begin, End, Steps, N, weights_stock, Value, stock_alloc, bond_alloc) { 
+  
   # Scale bond & stock weights
   bond_stock = c(bond_alloc,stock_alloc)
   bond_stock = bond_stock/sum(bond_stock)

@@ -29,7 +29,7 @@ Value = 1000000                                     # Portfolio market cap at be
 breaks_ = 15                                        # Number of histrogram breaks
 
 ###################################################
- 
+
 # Scales weights to add up to 1:
 weights_ = weights_/sum(weights_)
 

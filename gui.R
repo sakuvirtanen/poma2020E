@@ -40,14 +40,17 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
                         btnSearch = icon("search"), 
                         btnReset = icon("remove"),
                         width = "100%")),
-            #verbatimTextOutput("tickerSearchRes"),
             
             column(12,uiOutput("tickerSearchRes")),
             
-            column(12,textInput(inputId = "isins",
-                      label = "Give ISINs",
-                      value = "XS1333685409")),
+            column(12,searchInput(inputId="isinSearch",
+                                  label="Search bonds by ISIN",
+                                  placeholder = "",
+                                  btnSearch = icon("search"), 
+                                  btnReset = icon("remove"),
+                                  width = "100%")),
             
+            column(12,uiOutput("isinSearchRes")),
           )
         )
       ),
@@ -109,7 +112,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Assets",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last")),
+        tabPanel("Assets",dataTableOutput("stockTable"), dataTableOutput("bondTable")),
         # tabPanel("Assets",uiOutput("portfolioStocks")),
         tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
         tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
@@ -124,7 +127,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
 
 server <- function(input,output,session) {
   
-  # Find out some volumes on the local filesystem
+  # Give running directory as only volume accessible for the file chooser.
   volumes <- c(wd = ".")
   # Server side function for rendering the file chooser. Note that this takes the additional session variable given
   # to the server function
@@ -132,17 +135,21 @@ server <- function(input,output,session) {
   
   simResults <- reactiveValues()
   stockPortfolio <- reactiveValues()
-  portfoliodf <- reactiveValues(data = data.frame(
+  portfoliodf <- reactiveValues(stockData = data.frame(
     Ticker = c(),
     Weight = c(),
     Delete= c(),
-    stringsAsFactors = FALSE))
+    stringsAsFactors = FALSE), bondData = data.frame(
+      ISIN = c(),
+      Weight = c(),
+      Delete = c(),
+      stringsAsFactors = FALSE
+    ))
   
   #  Create a list for storing the event handlers for individual search result buttons
-  obsList <- list()
-  
+  tickObsList <- list()
   # Event handler for ticker search events
-  searchResButtons <- eventReactive(input$tickerSearch_search,
+  stockSearchButtons <- eventReactive(input$tickerSearch_search,
   {
     # Search by grepping elements from the first row of the stock data file
     # The first row must contain the tickers for individual securities in the file.
@@ -159,15 +166,13 @@ server <- function(input,output,session) {
     {
       btName <- toString(i)
       # print(btName)
-      if (is.null(obsList[[btName]])) {
-        obsList[[btName]] <<- observeEvent(input[[btName]], {
-          stockPortfolio$tickers[btName] <- btName
-          stockPortfolio$weights[btName] <- 1
-          portfoliodf$data <- rbind(portfoliodf$data,data.frame(
+      if (is.null(tickObsList[[btName]])) {
+        tickObsList[[btName]] <<- observeEvent(input[[btName]], {
+          portfoliodf$stockData <- rbind(portfoliodf$stockData,data.frame(
             Ticker = btName,
             Weight = 1,
-            Delete = shinyInput(actionButton, nrow(portfoliodf$data)+1, 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"select_button\",  this.id)' ),
-            row.names = nrow(portfoliodf$data)+1
+            Delete = shinyInput(actionButton, nrow(portfoliodf$stockData)+1, 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"stockDel_button\",  this.id)' ),
+            row.names = nrow(portfoliodf$stockData)+1
           ))
           # print(stockPortfolio$selected[btName])
           # print(stockPortfolio$selected[btName])
@@ -184,40 +189,49 @@ server <- function(input,output,session) {
   }
   )
   
+  #  Create a list for storing the event handlers for individual search result buttons
+  isinObsList <- list()
+  # Event handler for ticker search events
+  bondSearchButtons <- eventReactive(input$isinSearch_search, {
+    # Search by grepping elements from the first row of the stock data file
+    # The first row must contain the tickers for individual securities in the file.
+    resultButtons <-  grep(input$isinSearch,unique(read_excel("data/finnish_corporate_bonds.xlsx", sheet="Sheet1")[["ISIN"]]),ignore.case=TRUE,value=TRUE)
+    
+    # Limit the maximum number of buttons rendered to a sensible number.
+    # This feature now requires pagination, this needs to be added.
+    renderCount <- pmin(6,length(resultButtons))
+    
+    # Iterate through resultButtons to create fluidRow() elements with
+    # actionButton()'s in them for each search result.
+    resultButtons <- lapply(resultButtons[1:renderCount], function(i)
+    {
+      btName <- toString(i)
+      # print(btName)
+      if (is.null(isinObsList[[btName]])) {
+        isinObsList[[btName]] <<- observeEvent(input[[btName]], {
+          portfoliodf$bondData <- rbind(portfoliodf$bondData, data.frame(
+            ISIN = btName,
+            Weight = 1,
+            Delete = shinyInput(actionButton, nrow(portfoliodf$bondData)+1, 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"bondDel_button\",  this.id)' ),
+            row.names = nrow(portfoliodf$bondData)+1
+          ))
+          print(portfoliodf$bondData)
+          # print(stockPortfolio$selected[btName])
+          # print(stockPortfolio$selected[btName])
+          # print(btName)
+          # print(resultButtons)
+        },autoDestroy = TRUE)
+        
+      }
+      fluidRow(
+        actionButton(btName,btName)
+        
+      )
+    })
+  }
+  )
 
-  observeEvent(stockPortfolio, {
-    print("stockPortfolio changed")
-  })
-  
-  tickerList <- eventReactive(input$button,{
-    input$tickers
-  })
-  
-  observeEvent(input$deleteLastStock, {
-    selectedTickers <- c()
-    selectedWeights <- c()
-    
-    for (s in stockPortfolio$tickers) {
-      selectedTickers <- c(selectedTickers,s[1])
-    }
-    
-    for (s in stockPortfolio$weights) {
-      selectedWeights <- c(selectedWeights,s[1])
-    }
-    
-    delName = selectedTickers[length(selectedTickers)]
-    
-    tickList <- stockPortfolio$tickers
-    tickList <- tickList[-length(tickList)]
-    
-    weightList <- stockPortfolio$weights
-    weightList <- weightList[-length(weightList)]
-    
-    stockPortfolio$tickers <- tickList
-    stockPortfolio$weights <- weightList
-    # print(stockPortfolio$tickers[delName])
-  })
-  
+
   pricePaths <- eventReactive(simResults$stockOnly, {
     
     selectedTickers <- c()
@@ -317,12 +331,21 @@ server <- function(input,output,session) {
     }
     
     # print(length(selectedTickers))
-    simResults$stockOnly <- Simulate_Stocks(portfoliodf$data[["Ticker"]], format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(portfoliodf$data[["Weight"]], nrow = 1),input$notional,input$stockweight,input$bondweight)
+    simResults$stockOnly <- Simulate_Stocks(portfoliodf$stockData[["Ticker"]], format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(portfoliodf$stockData[["Weight"]], nrow = 1),input$notional,input$stockweight,input$bondweight)
   })
   
   observeEvent(simResults$stockOnly, {
     # print("A stock simulation just got created! Now invoking bond simulations")
-    simResults$withBonds <- Simulate_Bonds(unlist(strsplit(input$isins,",")),format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(rep(1,length(unlist(strsplit(input$isins,",")))), nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
+    datecheck <- checkDates(input$dates[1],input$dates[2],portfoliodf$bondData[["ISIN"]])
+    
+    print(datecheck$possible)
+    
+    if (datecheck["possible"] == TRUE) {
+      print(portfoliodf$bondData[["ISIN"]])
+    simResults$withBonds <- Simulate_Bonds(portfoliodf$bondData[["ISIN"]],format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(portfoliodf$bondData[["Weight"]], nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
+    } else {
+      print("No data available for selected ISINs in date range. Bond simulation skipped")
+    }
   })
   
   
@@ -371,9 +394,14 @@ server <- function(input,output,session) {
   })
   
   
-  observeEvent(input$select_button, {
-    selectedRow <- as.numeric(strsplit(input$select_button, "_")[[1]][2])
-    portfoliodf$data <- portfoliodf$data[-c(selectedRow),]
+  observeEvent(input$stockDel_button, {
+    selectedRow <- as.numeric(strsplit(input$stockDel_button, "_")[[1]][2])
+    portfoliodf$stockData <- portfoliodf$stockData[-c(selectedRow),]
+  })
+  
+  observeEvent(input$bondDel_button, {
+    selectedRow <- as.numeric(strsplit(input$bondDel_button, "_")[[1]][2])
+    portfoliodf$bondData <- portfoliodf$bondData[-c(selectedRow),]
   })
   
   frontier_react <- eventReactive(input$button,{
@@ -390,14 +418,17 @@ server <- function(input,output,session) {
     }
   })
   
-  output$tickerSearchRes <- renderUI({searchResButtons()})
-  output$text <- renderText({tickerList()})
+  output$tickerSearchRes <- renderUI({stockSearchButtons()})
+  output$isinSearchRes <- renderUI({bondSearchButtons()})
   output$pricepath <- renderPlot({pricePaths()})
   output$tuottojakauma1 <- renderPlot({return_histogram()})
   output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
   output$filetable <- renderDataTable({selectedData()},server = FALSE, escape = FALSE, selection = 'none')
-  output$dataTest <- DT::renderDataTable(
-    portfoliodf$data, server = FALSE, escape = FALSE, selection = 'none'
+  output$stockTable <- DT::renderDataTable(
+    portfoliodf$stockData, server = FALSE, escape = FALSE, selection = 'none'
+  )
+  output$bondTable <- DT::renderDataTable(
+    portfoliodf$bondData, server = FALSE, escape = FALSE, selection = 'none'
   )
   output$efficientfrontier <- renderPlot({frontier_react()})
   output$stats <- renderTable({maketable()})

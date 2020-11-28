@@ -72,11 +72,11 @@ VaR_ = 0.05
 
 # If tickers are set: run stock simulation:
 Simulate_Stocks <- function(Tickers, Begin, End, Steps, N, weights_stock, Value, stock_alloc, bond_alloc) { 
+  # Scale bond & stock weights
+  bond_stock = c(bond_alloc,stock_alloc)
+  bond_stock = bond_stock/sum(bond_stock)
+  
   if (length(Tickers > 0)) {
-    
-    # Scale bond & stock weights
-    bond_stock = c(bond_alloc,stock_alloc)
-    bond_stock = bond_stock/sum(bond_stock)
     
     Results <- matrix(ncol = Steps + 1, nrow = N)
     
@@ -163,6 +163,32 @@ Simulate_Bonds <- function(ISIN,Begin,End,Steps,N,bondWeights,stockOnly,stock_al
   return(simResult)
 }
 
+
+checkDates <- function(firstDate,lastDate,isins) {
+  
+  Begin_Date <- as.Date(paste0(format(as.Date(firstDate), "%Y-%m"),"-01"))
+  End_Date <- as.Date(paste0(format(as.Date(lastDate), "%Y-%m"),"-01"))
+  
+  firstPossible <- Begin_Date
+  lastPossible <- End_Date
+  
+  for (i in 1:length(isins)) {
+    thisISIN <- Bonds[Bonds$ISIN == isins[i],]
+    thisISIN$Date <- as.Date(paste0(format(as.Date(thisISIN$Date), "%Y-%m"),"-01"))
+    
+    if (thisISIN$Date[1] > firstPossible) {
+      firstPossible <- thisISIN$Date[1]
+    }
+    
+    if (thisISIN$Date[nrow(thisISIN)] < lastPossible) {
+      lastPossible <- thisISIN$Date[nrow(thisISIN)]
+    }
+  }
+  
+  possible <- ((firstPossible == Begin_Date) && (lastPossible == End_Date))
+  
+  return(list("possible" = possible, "firstPossible" = firstPossible, "lastPossible" = lastPossible))
+}
 
 # 
 # # Normalized values at end of period:

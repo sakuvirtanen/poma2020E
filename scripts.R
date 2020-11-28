@@ -162,6 +162,8 @@ Simulate_Bonds <- function(ISIN,Begin,End,Steps,N,bondWeights,stockOnly,stock_al
   
   return(simResult)
 }
+
+
 # 
 # # Normalized values at end of period:
 # Scaled = Results[,Steps+1]

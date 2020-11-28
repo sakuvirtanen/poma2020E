@@ -125,7 +125,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
     
     mainPanel(
       tabsetPanel(
-        tabPanel("Assets",dataTableOutput("filetable"),actionButton("deleteLastStock","Delete last")),
+        tabPanel("Assets",dataTableOutput("dataTest"),actionButton("deleteLastStock","Delete last")),
         # tabPanel("Assets",uiOutput("portfolioStocks")),
         tabPanel("Price path",plotOutput("pricepath"),icon = icon("chart-line")),
         tabPanel("Return distribution",plotOutput("tuottojakauma1"),icon = icon("bar-chart-o")),
@@ -149,6 +149,11 @@ server <- function(input,output,session) {
   
   simResults <- reactiveValues()
   stockPortfolio <- reactiveValues()
+  portfoliodf <- reactiveValues(data = data.frame(
+    Ticker = c(),
+    Weight = c(),
+    Delete= c(),
+    stringsAsFactors = FALSE))
   
   #  Create a list for storing the event handlers for individual search result buttons
   obsList <- list()
@@ -175,6 +180,12 @@ server <- function(input,output,session) {
         obsList[[btName]] <<- observeEvent(input[[btName]], {
           stockPortfolio$tickers[btName] <- btName
           stockPortfolio$weights[btName] <- 1
+          portfoliodf$data <- rbind(portfoliodf$data,data.frame(
+            Ticker = btName,
+            Weight = 1,
+            Delete = shinyInput(actionButton, nrow(portfoliodf$data)+1, 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"select_button\",  this.id)' ),
+            row.names = nrow(portfoliodf$data)+1
+          ))
           # print(stockPortfolio$selected[btName])
           # print(stockPortfolio$selected[btName])
           # print(btName)
@@ -189,33 +200,6 @@ server <- function(input,output,session) {
     })
   }
   )
-  
-  # selectedPortfolioConstructor <- eventReactive(stockPortfolio$weights, {
-  #   selectedTickers <- c()
-  #   selectedWeights <- c()
-  #   
-  #   for (s in stockPortfolio$tickers) {
-  #     selectedTickers <- c(selectedTickers,s[1])
-  #   }
-  #   
-  #   for (s in stockPortfolio$weights) {
-  #     selectedWeights <- c(selectedWeights,s[1])
-  #   }
-  #   
-  #   print("Weights changed")
-  #   print("Current tickers:")
-  #   print(selectedTickers)
-  #   
-  #   rows <- selectedTickers
-  #   
-  #   for (i in 1:length(selectedTickers)) {
-  #     rows[i] <- fluidRow(
-  #       p(selectedTickers[i]),
-  #       p(selectedWeights[i])
-  #     )
-  #   }
-  #   
-  # })
   
   
   
@@ -314,7 +298,7 @@ server <- function(input,output,session) {
     #lines(T,means*input$notional, col = "#FF0000")
   })
   
-  return_histogram <- eventReactive(input$button,{
+  return_histogram <- eventReactive(simResults$withBonds,{
     histData <- simResults$withBonds
     Scaled_return = histData[,input$months+1]/histData[,1]*100-100
     VaR_q = quantile(Scaled_return, probs = c(input$var))*input$notional/100
@@ -351,7 +335,7 @@ server <- function(input,output,session) {
     }
     
     # print(length(selectedTickers))
-    simResults$stockOnly <- Simulate_Stocks(selectedTickers, format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(selectedWeights, nrow = 1),input$notional,input$stockweight,input$bondweight)
+    simResults$stockOnly <- Simulate_Stocks(portfoliodf$data[["Ticker"]], format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(portfoliodf$data[["Weight"]], nrow = 1),input$notional,input$stockweight,input$bondweight)
   })
   
   observeEvent(simResults$stockOnly, {
@@ -366,10 +350,8 @@ server <- function(input,output,session) {
   
   # This is a helper function found on SO, seeing if it helps with generating deletion buttons for stocks in portfolio
   shinyInput <- function(FUN, len, id, ...) {
-    inputs <- character(len)
-    for (i in seq_len(len)) {
-      inputs[i] <- as.character(FUN(paste0(id, i), ...))
-    }
+    # inputs <- character(1)
+    inputs <- as.character(FUN(paste0(id, len), ...))
     inputs
   }
   
@@ -392,31 +374,25 @@ server <- function(input,output,session) {
     # tickers = unlist(strsplit(input$tickers,","))
     # print(stockPortfolio$weights)
     f = cbind(selectedTickers,selectedWeights,shinyInput(actionButton, length(selectedWeights), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"delete_button\",  this.id)' ))
+    
+    f <- data.frame(
+      Tickers = selectedTickers,
+      Weights = selectedWeights,
+      Actions = shinyInput(actionButton, length(selectedWeights), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"select_button\",  this.id)' ),
+      stringsAsFactors = FALSE
+    )
+    
     # print(f)
     # print(length(f))
     f <- datatable(f)
-    
-    
-    
-    # Create the table (using table from htmlTables doc as example)
-    #HTML(
-    #  htmlTable(matrix(paste("Content", LETTERS[1:16]), 
-    #                   ncol=4, byrow = TRUE),
-    #            header =  paste(c("1st", "2nd",
-    #                              "3rd", "4th"), "header"),
-                #rnames = paste(c("1st", "2nd",
-                #                 "3rd", "4th"), "row"),
-    #            rgroup = c("Stocks",
-    #                       "Corporate Bonds"),
-     #           n.rgroup = c(2,2),
-      #          cgroup = c("Cgroup 1", "Cgroup 2&dagger;"),
-       #         n.cgroup = c(2,2), 
-      #          caption="Portfolio Assets",
-      #          tfoot="&dagger; A table footer commment") 
-    #)
-    
+
   })
   
+  
+  observeEvent(input$select_button, {
+    selectedRow <- as.numeric(strsplit(input$select_button, "_")[[1]][2])
+    portfoliodf$data <- portfoliodf$data[-c(selectedRow),]
+  })
   
   frontier_react <- eventReactive(input$button,{
     plot(c(1,2,3),c(3,5,8),main="Efficient Frontier",
@@ -433,14 +409,15 @@ server <- function(input,output,session) {
   })
   
   output$tickerSearchRes <- renderUI({searchResButtons()})
-  output$portfolioStocks <- renderUI({selectedPortfolioConstructor()})
   output$text <- renderText({tickerList()})
   output$pricepath <- renderPlot({pricePaths()})
   output$tuottojakauma1 <- renderPlot({return_histogram()})
   output$tuottojakauma2 <- renderPlot({marketcap_histogram()})
   output$filetable <- renderDataTable({selectedData()},server = FALSE, escape = FALSE, selection = 'none')
-  output$stats <- renderTable({maketable()})
-  
+  output$stats <- renderTable
+  output$dataTest <- DT::renderDataTable(
+    portfoliodf$data, server = FALSE, escape = FALSE, selection = 'none'
+  )
   output$efficientfrontier <- renderPlot({frontier_react()})
   
 

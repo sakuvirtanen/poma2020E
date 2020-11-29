@@ -237,7 +237,7 @@ server <- function(input,output,session) {
   )
 
 
-  pricePaths <- eventReactive(simResults$stockOnly, {
+  pricePaths <- eventReactive(simResults$withBonds, {
     
     selectedTickers <- c()
 
@@ -251,7 +251,7 @@ server <- function(input,output,session) {
     # Set time frame:
     T = 0:input$months
     # Set y axis min and max from simulated results:
-    y_scale = c(min(simResults$stockOnly[,input$months])*input$notional,max(simResults$stockOnly[,input$months])*input$notional)
+    y_scale = c(min(simResults$withBonds[,input$months])*input$notional,max(simResults$withBonds[,input$months])*input$notional)
     # Axis labels:
     y_lab = "Market Cap"
     x_lab = "Months from beginning"
@@ -264,7 +264,7 @@ server <- function(input,output,session) {
     full_title = paste(title_, "\n",sub_)
 
     
-    stock_df = as.matrix(simResults$stockOnly)
+    stock_df = as.matrix(simResults$withBonds)
     stock_df = as.data.frame(t(stock_df))
     
     #means = colMeans(simResults$stockOnly)*input$notional
@@ -369,17 +369,18 @@ server <- function(input,output,session) {
     Scaled = simResults$withBonds[,input$months+1]
     Cap = Scaled * input$notional
     
-    VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
-    kurt = kurtosis(Scaled_return)
-    skew = skewness(Scaled_return)
-    st_dev = sd(Scaled_return)
-    min_value = min(Cap)
-    max_value = max(Cap)
-    mean_value = mean(Cap)
-    median_value = median(Cap)
+    VaR_q = round((quantile(Scaled_return, probs = c(input$var/100))*input$notional/100),-3)
+    kurt = as.character(format(round(kurtosis(Scaled_return),2), nsmall = 2))
+    skew = as.character(format(round(skewness(Scaled_return),2), nsmall = 2))
+    st_dev = as.character(format(round(sd(Scaled_return),2), nsmall = 2))
+    exp_ret = as.character(format(round(mean(Scaled_return),2), nsmall = 2))
+    min_value = as.character(round(min(Cap),-3))
+    max_value = as.character(round(max(Cap),-3))
+    mean_value = as.character(round(mean(Cap),-3))
+    median_value = as.character(round(median(Cap),-3))
     result <- data.frame(
-                  Statistic = c('Skew','Kurtosis',"Standard deviation",'Value-at-Risk','Min value','Max value','Mean',"Median"),
-                  Value = c(skew,kurt,st_dev,VaR_q,min_value,max_value,mean_value,median_value)
+                  Statistic = c("Expected return (%)","Standard deviation (%)",'Value-at-Risk','Min value','Max value','Mean',"Median",'Skew','Kurtosis'),
+                  Value = c(exp_ret,st_dev,VaR_q,min_value,max_value,mean_value,median_value,skew,kurt)
               )
   })
   

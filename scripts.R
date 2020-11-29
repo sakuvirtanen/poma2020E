@@ -152,7 +152,10 @@ Simulate_Bonds <- function(ISIN,Begin,End,Steps,N,bondWeights,stockOnly,stock_al
       # Set total portfolio weight:
       w_ = bond_stock[1]*bondWeights[i]
       # Run bond simulation:
-      simResult = stockOnly + w_*Bond_sim(ISIN_, N, Begin, End, Steps)
+      bond_sim_res <- Bond_sim(ISIN_, N, Begin, End, Steps)
+      bond_sim_res <- bond_sim_res/bond_sim_res[1,1]
+      print(bond_sim_res)
+      simResult = stockOnly + w_*bond_sim_res
     }
     # If no ISIN given - fill bond share with cash:
   } else {

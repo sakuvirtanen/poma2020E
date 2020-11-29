@@ -1,5 +1,6 @@
 library(shiny)
 library(shinyWidgets)
+library(shinythemes)
 library(shinyFiles)
 library(htmlTable)
 library(fs)
@@ -10,13 +11,14 @@ library(dplyr)
 library(reshape2)
 library(DT)
 library(kableExtra)
+library(moments)
 source("scripts.R")
 
-ui <- fluidPage(style="background-color:#FFFFFF;",
+ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
   setBackgroundImage(
     src = ""
   ),
-  includeCSS("styles.css"),
+  #includeCSS("styles.css"),
   
   titlePanel(
     h1("Portfolio Management Tool")
@@ -24,16 +26,16 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
   
   
   sidebarLayout(
-    sidebarPanel(style="background-color:#DDDDDD;",
+    sidebarPanel(#style="background-color:#DDDDDD;",
       
       fluidRow(
-        column(12,h2("Select Tickers"),style="background-color:#DDDDDD;",
+        column(12,h2("Select Tickers"),#style="background-color:#DDDDDD;",
           
           fluidRow(
         
-            column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
+            # column(12,shinyFilesButton("stockFile","File select", "Select your stock data file", multiple=FALSE, viewtype="detail")),
             
-            column(12,textOutput("stockFilePath")),
+            # column(12,textOutput("stockFilePath")),
             
             column(12,searchInput(inputId="tickerSearch",
                         label="Search stock data by ticker",
@@ -59,7 +61,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
       
       fluidRow(
         
-        column(12,h2("Asset Allocation"),style="background-color:#DDDDDD;",
+        column(12,h2("Asset Allocation"),#style="background-color:#DDDDDD;",
           fluidRow(
             
             column(12,numericInput(inputId = "notional",
@@ -80,7 +82,7 @@ ui <- fluidPage(style="background-color:#FFFFFF;",
       ),
       
       fluidRow(
-        column(12,h2("Simulation specs"),style="background-color:#DDDDDD;",
+        column(12,h2("Simulation specs"),#style="background-color:#DDDDDD;",
                       
           fluidRow(
             
@@ -168,8 +170,7 @@ server <- function(input,output,session) {
   {
     # Search by grepping elements from the first row of the stock data file
     # The first row must contain the tickers for individual securities in the file.
-    resultButtons <-  grep(input$tickerSearch,names(read_excel(parseFilePaths(
-      volumes,input$stockFile)[["datapath"]], sheet="Returns")),ignore.case=TRUE,value=TRUE)
+    resultButtons <-  grep(input$tickerSearch,names(read_excel("data/Suomi-osakkeet.xlsx", sheet="Returns")),ignore.case=TRUE,value=TRUE)
     
     # Limit the maximum number of buttons rendered to a sensible number.
     # This feature now requires pagination, this needs to be added.
@@ -180,7 +181,6 @@ server <- function(input,output,session) {
     resultButtons <- lapply(resultButtons[1:renderCount], function(i)
     {
       btName <- toString(i)
-      # print(btName)
       if (is.null(tickObsList[[btName]])) {
         tickObsList[[btName]] <<- observeEvent(input[[btName]], {
           portfoliodf$stockData <- rbind(portfoliodf$stockData,data.frame(
@@ -189,10 +189,6 @@ server <- function(input,output,session) {
             Delete = shinyInput(actionButton, nrow(portfoliodf$stockData)+1, 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"stockDel_button\",  this.id)' ),
             row.names = nrow(portfoliodf$stockData)+1
           ))
-          # print(stockPortfolio$selected[btName])
-          # print(stockPortfolio$selected[btName])
-          # print(btName)
-          # print(resultButtons)
         },autoDestroy = TRUE)
         
       }
@@ -221,7 +217,6 @@ server <- function(input,output,session) {
     resultButtons <- lapply(resultButtons[1:renderCount], function(i)
     {
       btName <- toString(i)
-      # print(btName)
       if (is.null(isinObsList[[btName]])) {
         isinObsList[[btName]] <<- observeEvent(input[[btName]], {
           portfoliodf$bondData <- rbind(portfoliodf$bondData, data.frame(
@@ -230,11 +225,6 @@ server <- function(input,output,session) {
             Delete = shinyInput(actionButton, nrow(portfoliodf$bondData)+1, 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"bondDel_button\",  this.id)' ),
             row.names = nrow(portfoliodf$bondData)+1
           ))
-          print(portfoliodf$bondData)
-          # print(stockPortfolio$selected[btName])
-          # print(stockPortfolio$selected[btName])
-          # print(btName)
-          # print(resultButtons)
         },autoDestroy = TRUE)
         
       }
@@ -276,22 +266,19 @@ server <- function(input,output,session) {
     
     stock_df = as.matrix(simResults$stockOnly)
     stock_df = as.data.frame(t(stock_df))
-    # print(length(stock_df))
     
     #means = colMeans(simResults$stockOnly)*input$notional
     
     stock_df$Month = seq(1,input$months+1)
     #stock_df$Means = cMeans(simResults$stockOnly) #*input$notional
-    # print(stock_df)
     
     d = stock_df
     
     
-    #print(length(means))
     d <- melt(d, id.vars="Month")
-    #print(d)
+
     # Everything on the same plot
-    print(stock_df)
+    # print(stock_df)
     ggplot(d, aes(Month,value, col=variable)) + 
       geom_line() + 
       ggtitle("Simulated Price Paths") +
@@ -358,31 +345,41 @@ server <- function(input,output,session) {
   
   observeEvent(simResults$stockOnly, {
     # print("A stock simulation just got created! Now invoking bond simulations")
-    datecheck <- checkDates(input$dates[1],input$dates[2],portfoliodf$bondData[["ISIN"]])
     
-    print(datecheck$possible)
+    if(nrow(portfoliodf$bondData) > 0) {
     
-    if (datecheck["possible"] == TRUE) {
-      print(portfoliodf$bondData[["ISIN"]])
-    simResults$withBonds <- Simulate_Bonds(portfoliodf$bondData[["ISIN"]],format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(portfoliodf$bondData[["Weight"]], nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
+      datecheck <- checkDates(input$dates[1],input$dates[2],portfoliodf$bondData[["ISIN"]])
+      if (datecheck["possible"] == TRUE) {
+        # print(portfoliodf$bondData[["ISIN"]])
+        print("Simulating bonds")
+      simResults$withBonds <- Simulate_Bonds(portfoliodf$bondData[["ISIN"]],format(as.Date(input$dates[1]), "%Y-%m"), format(as.Date(input$dates[2]), "%Y-%m"), input$months, input$slide, matrix(portfoliodf$bondData[["Weight"]], nrow = 1), simResults$stockOnly, input$stockweight, input$bondweight)
+      } else {
+        print("No data available for selected ISINs in date range. Bond simulation skipped")
+        simResults$withBonds <- simResults$stockOnly
+      }
     } else {
-      print("No data available for selected ISINs in date range. Bond simulation skipped")
+      simResults$withBonds <- simResults$stockOnly
     }
   })
   
-  library(moments)
   
   maketable <- eventReactive(simResults$withBonds,{
     Scaled_return = simResults$withBonds[,input$months+1]/simResults$withBonds[,1]*100-100
+    
+    Scaled = simResults$withBonds[,input$months+1]
+    Cap = Scaled * input$notional
+    
     VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
     kurt = kurtosis(Scaled_return)
     skew = skewness(Scaled_return)
-    min_value = min(Scaled_return)
-    max_value = max(Scaled_return)
-    mean_value = mean(Scaled_return)
+    st_dev = sd(Scaled_return)
+    min_value = min(Cap)
+    max_value = max(Cap)
+    mean_value = mean(Cap)
+    median_value = median(Cap)
     result <- data.frame(
-                  Statistic = c('Value-at-Risk','Skew','Kurtosis','Min value','Max value','Mean'),
-                  Value = c(-VaR_q,skew,kurt,min_value,max_value,mean_value)
+                  Statistic = c('Skew','Kurtosis',"Standard deviation",'Value-at-Risk','Min value','Max value','Mean',"Median"),
+                  Value = c(skew,kurt,st_dev,VaR_q,min_value,max_value,mean_value,median_value)
               )
   })
   
@@ -405,14 +402,7 @@ server <- function(input,output,session) {
     for (s in stockPortfolio$weights) {
       selectedWeights <- c(selectedWeights,s[1])
     }
-    
-    # print(selectedTickers)
-    # print(selectedWeights)
-    
-    # tickers = unlist(strsplit(input$tickers,","))
-    # print(stockPortfolio$weights)
-    f = cbind(selectedTickers,selectedWeights,shinyInput(actionButton, length(selectedWeights), 'button_', label = "Delete", onclick = 'Shiny.onInputChange(\"delete_button\",  this.id)' ))
-    
+
     f <- data.frame(
       Tickers = selectedTickers,
       Weights = selectedWeights,

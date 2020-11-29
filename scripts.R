@@ -5,7 +5,7 @@
 stocks_filename = "data/Suomi-osakkeet.xlsx"
 return_sheet = "Returns"
 
-bonds_filename = "data/finnish_corporate_bonds.xlsx"
+bonds_filename = "data/bonds.xlsx"
 bond_sheet = "Sheet1"
 
 source("Bond_price.r")

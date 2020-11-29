@@ -206,7 +206,7 @@ server <- function(input,output,session) {
   bondSearchButtons <- eventReactive(input$isinSearch_search, {
     # Search by grepping elements from the first row of the stock data file
     # The first row must contain the tickers for individual securities in the file.
-    resultButtons <-  grep(input$isinSearch,unique(read_excel("data/finnish_corporate_bonds.xlsx", sheet="Sheet1")[["ISIN"]]),ignore.case=TRUE,value=TRUE)
+    resultButtons <-  grep(input$isinSearch,unique(read_excel("data/bonds.xlsx", sheet="Sheet1")[["ISIN"]]),ignore.case=TRUE,value=TRUE)
     
     # Limit the maximum number of buttons rendered to a sensible number.
     # This feature now requires pagination, this needs to be added.
@@ -229,7 +229,7 @@ server <- function(input,output,session) {
         
       }
       fluidRow(
-        actionButton(btName,btName)
+        column(12,actionButton(btName,btName))
         
       )
     })

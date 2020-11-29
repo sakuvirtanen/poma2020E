@@ -18,7 +18,6 @@ ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
   setBackgroundImage(
     src = ""
   ),
-  #includeCSS("styles.css"),
   
   titlePanel(
     h1("Portfolio Management Tool")
@@ -38,7 +37,7 @@ ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
             # column(12,textOutput("stockFilePath")),
             
             column(12,searchInput(inputId="tickerSearch",
-                        label="Search stock data by ticker",
+                        label="Search stock data by ticker:",
                         placeholder = "",
                         btnSearch = icon("search"), 
                         btnReset = icon("remove"),
@@ -47,7 +46,7 @@ ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
             column(12,uiOutput("tickerSearchRes")),
             
             column(12,searchInput(inputId="isinSearch",
-                                  label="Search bonds by ISIN",
+                                  label="Search bonds by ISIN:",
                                   placeholder = "",
                                   btnSearch = icon("search"), 
                                   btnReset = icon("remove"),
@@ -82,7 +81,7 @@ ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
       ),
       
       fluidRow(
-        column(12,h2("Simulation specs"),#style="background-color:#DDDDDD;",
+        column(12,h2("Simulation Specifications"),#style="background-color:#DDDDDD;",
                       
           fluidRow(
             
@@ -90,12 +89,12 @@ ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
                    label = "Number of months to simulate:",
                    value = 10,min = 1,max = 60)),
             
-            column(6,sliderInput("slide","Number of simulations",
+            column(6,sliderInput("slide","Number of simulations:",
                                   min=0,max=1000,value=20)),
     
       
             column(12,dateRangeInput(inputId = "dates",
-                     "Choose the start and end date",
+                     "Choose the start and the end date:",
                      start = "2018-10-01",
                      end = "2019-10-01",)),
           )
@@ -103,7 +102,7 @@ ui <- fluidPage(style="background-color:#505050;", theme = shinytheme("slate"),
       ), 
       
       numericInput(inputId = "var",
-                   label = "Value at risk:",
+                   label = "Value at risk (%):",
                    value = 5,min = 0,max = 10),
       
       actionButton("button",label="Run simulation")
@@ -206,7 +205,7 @@ server <- function(input,output,session) {
   bondSearchButtons <- eventReactive(input$isinSearch_search, {
     # Search by grepping elements from the first row of the stock data file
     # The first row must contain the tickers for individual securities in the file.
-    resultButtons <-  grep(input$isinSearch,unique(read_excel("data/finnish_corporate_bonds.xlsx", sheet="Sheet1")[["ISIN"]]),ignore.case=TRUE,value=TRUE)
+    resultButtons <-  grep(input$isinSearch,unique(read_excel("data/bonds.xlsx", sheet="Sheet1")[["ISIN"]]),ignore.case=TRUE,value=TRUE)
     
     # Limit the maximum number of buttons rendered to a sensible number.
     # This feature now requires pagination, this needs to be added.

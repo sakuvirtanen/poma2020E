@@ -308,7 +308,7 @@ server <- function(input,output,session) {
     VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
     subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var/100,"%:" , signif(VaR_q, digits = 3))
     f = data.frame(Scaled_return)
-    ggplot(f,aes(x=Scaled_return)) + geom_histogram()
+    ggplot(f,aes(x=Scaled_return)) + geom_histogram(fill="blue", color="black")
     #hist(Scaled_return, main = input$tickers, sub = subtitle, xlab = "Cumulative return (%)", xlim = c(-100,200), breaks = 15)
   })
 
@@ -321,7 +321,7 @@ server <- function(input,output,session) {
     VaR_q = quantile(Scaled_return, probs = c(input$var/100))*input$notional/100
     subtitle = paste(input$slide, " simulations, ", input$months, " steps" , ", VaR ", input$var/100,"%:" , signif(VaR_q, digits = 3))
     f = data.frame(Cap)
-    ggplot(f,aes(x=Cap)) + geom_histogram()
+    ggplot(f,aes(x=Cap)) + geom_histogram(fill="blue", color="black") + scale_x_continuous(labels = scales::comma)
     #hist(Cap, main = input$tickers, xlab = "Market value (Eur)", xlim = c(0,3*input$notional), breaks = 15)
   })
   
